@@ -1,68 +1,60 @@
-#include <bits/stdc++.h>
+#include<bits/stdc++.h>
 using namespace std;
-void bubble(int arr[],int n){
-    for(int i=0;i<n-1;i++){
-        #pragma omp parallel section
-        for(int j=0;j<n-i-1;j++){
-            if(arr[j]>arr[j+1]){
-                int temp=arr[j];
-                arr[j]=arr[j+1];
-                arr[j+1]=temp;
+
+void parallel_bubble(std::vector<int>& arr){
+    bool swapped =true;
+    int n= arr.size();
+    #pragma omp parallel shared(arr,n, swapped)
+    {
+        while(swapped){
+            swapped=false;
+            #pragma omp for nowait
+            for(int i=0;i<n;i++){
+                if(arr[i-1]>arr[i]){
+                    std::swap(arr[i-1],arr[i]);
+                    swapped=true;
+                }
             }
         }
     }
 }
-void conqure(int arr[],int si,int mid,int ei){
-    int* merged=new int[ei-si+1];
-    int idx1=si;
-    int idx2=mid+1;
-    int x=0;
-    while(idx1<=mid && idx2<=ei){
-        if(arr[idx1]<=arr[idx2]){
-            merged[x]=arr[idx1];
-            x++; idx1++;
+
+void parallel_merge(std::vector<int>&arr){
+    if(arr.size()<1){
+        int mid=arr.size()/2;
+        std::vector<int> left(arr.begin(),arr.begin()+mid);
+        std::vector<int> right(arr.begin()+mid,arr.end());
+        
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            parallel_merge(left);
+            #pragma omp section
+            parallel_merge(right);
         }
-       else{
-            merged[x]=arr[idx2];
-            x++; idx2++;
-        }
-    }
-    while(idx1<=mid){
-            merged[x]=arr[idx1];
-            x++; idx1++;
-        }
-    while(idx2<=ei){
-            merged[x]=arr[idx2];
-            x++; idx2++;
-        }
-    for(int i=0,j=si;i<ei-si+1;i++,j++){
-        arr[j]=merged[i];
+        std::merge(left.begin(),left.end(),right.begin(),right.end(),arr.begin());
     }
 }
-void divide(int arr[],int si,int ei){
-    if(si>=ei){
-        return;
-    }
-    int mid=(si+ei)/2;
-    #pragma omp parallel section
-    {
-    #pragma omp section
-    {
-    divide(arr,si,mid);
-    }
-    #pragma omp section
-    {
-    divide(arr,mid+1,ei);
-    }
-    conqure(arr,si,mid,ei);
-}
-}
+
 int main(){
-    int arr[]={9,8,7,6,5,4,3,2,1};
-    int n=sizeof(arr)/sizeof(arr[0]);
-    divide(arr,0,n-1);
-    for(int i=0;i<n;i++){
-        cout<<arr[i]<<" ";
+    std::vector<int> arr={5,2,9,1,7,6,8,3,4};
+    
+    std::cout<<"original array:";
+    for(auto i:arr){
+        std::cout<<i<<" ";
+    }
+    std::cout<<std::endl;
+    
+    parallel_bubble(arr);
+    std::cout<<"after parallel bubble:";
+    for(auto i: arr){
+        std::cout<<i<<" ";
     }
     
+    parallel_merge(arr);
+    std::cout<<"after parallel merge:";
+    for(auto i :arr){
+        std::cout<<i<<" ";
+    }
+    return 0;
 }
